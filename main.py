@@ -5,6 +5,11 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
+import logging
+import boto3
+from botocore.exceptions import ClientError
+import os
+
 
 CSV_FILE = '가계부.csv'
 TABS = ["추가", "수정", "삭제"]
@@ -119,13 +124,26 @@ def show_category_statistics():
         st.experimental_rerun()
 
 
+def upload_file(file_name, bucket, object_name=None):
+    if object_name is None:
+        object_name = os.path.basename(file_name)
+
+    s3_client = boto3.client('s3')
+    try:
+        response = s3_client.upload_file(file_name, bucket, object_name)
+    except ClientError as e:
+        logging.error(e)
+        return False
+    return True
+
+
 def read_entries():
     entries = {}
 
     if not os.path.exists(CSV_FILE):
         return entries
 
-    with open(CSV_FILE, 'r') as file:
+    with open(CSV_FILE, 'r', encoding='utf-8') as file:
         reader = csv.reader(file)
         for row in reader:
             entry_id = int(row[0])
@@ -136,10 +154,11 @@ def read_entries():
 
 
 def write_entries(entries):
-    with open(CSV_FILE, 'w', newline='') as file:
+    with open(CSV_FILE, 'w', encoding='utf-8', newline='') as file:
         writer = csv.writer(file)
         for entry_id, entry in entries.items():
             writer.writerow([entry_id] + entry)
+    upload_file('가계부.csv', 'cdk-hnb659fds-assets-909857918710-ap-northeast-2', '가계부.csv')
 
 
 if __name__ == '__main__':
